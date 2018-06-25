@@ -64,13 +64,8 @@ static PyObject *_build_ac(ACDetector *self, PyObject *args)
     }
 
     PyObject *str_list;
-    if (!PyArg_ParseTuple(args, "O", &str_list))
+    if (!PyArg_ParseTuple(args, "O!", &PyList_Type, &str_list))
     {
-        return NULL;
-    }
-    if (!PyList_Check(str_list))
-    {
-        PyErr_SetString(PyExc_TypeError, "a list object is required");
         return NULL;
     }
 
@@ -82,11 +77,12 @@ static PyObject *_build_ac(ACDetector *self, PyObject *args)
             delete self->root;
             self->root = NULL;
         }
-        return Py_True;
+        Py_RETURN_TRUE;
     }
 
-    // 到底是直接在列表中循环好，还是创建一个vector在纯cpp语境下循环比较好？
-    vector<string> word_list(words_count);
+    // 将python 列表中的字符串导入到vector中，并检查类型是否正确
+    vector<string> word_list;
+    word_list.reserve(words_count);
     PyObject *tmp_str;
     for (Py_ssize_t i = 0; i < words_count; i++)
     {
@@ -100,7 +96,7 @@ static PyObject *_build_ac(ACDetector *self, PyObject *args)
         {
             return NULL;
         }
-        char *chars = PyUnicode_AsUTF8(tmp_str);
+        const char *chars = PyUnicode_AsUTF8(tmp_str);
         if (!chars)
         {
             return NULL;
@@ -115,8 +111,9 @@ static PyObject *_build_ac(ACDetector *self, PyObject *args)
         self->root = NULL;
     }
     self->root = create_ac(&word_list);
+    vector<string>().swap(word_list);
 
-    return Py_True;
+    Py_RETURN_TRUE;
 }
 
 static PyObject *_processing(ACDetector *self, PyObject *args)
@@ -151,9 +148,9 @@ static PyObject *_is_active(ACDetector *self)
 {
     if (self->using_count > 0)
     {
-        return Py_True;
+        Py_RETURN_TRUE;
     }
-    return Py_False;
+    Py_RETURN_FALSE;
 }
 
 static PyObject *_clear_ac(ACDetector *self)
@@ -168,7 +165,7 @@ static PyObject *_clear_ac(ACDetector *self)
         delete self->root;
         self->root = NULL;
     }
-    return Py_True;
+    Py_RETURN_TRUE;
 }
 
 static PyMemberDef ACDetector_members[] = {

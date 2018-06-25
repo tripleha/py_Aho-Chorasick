@@ -52,6 +52,15 @@ struct TrieTreeNode
     {
         if (childs)
         {
+            // delete STL容器不会自动调用指针类型成员的析构函数，所以要自己迭代调用
+            for (unordered_map<char32_t, TrieTreeNode *>::iterator iter = childs->begin(); iter != childs->end(); iter++)
+            {
+                if (iter->second)
+                {
+                    delete iter->second;
+                    iter->second = nullptr;
+                }
+            }
             delete childs;
             childs = nullptr;
         }
