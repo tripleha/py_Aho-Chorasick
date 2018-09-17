@@ -98,7 +98,10 @@ void build_trie(TrieTreeNode *root, vector<string> *word_list)
 
         tmp_word = (*word_iter);
         if (tmp_word == "")
+        {
+            count++;
             continue;
+        }
         tmp_word32 = convert32.from_bytes(tmp_word);
         for (auto &chr : tmp_word32)
         {
@@ -183,9 +186,11 @@ void find_all_ac(TrieTreeNode *root, string *words, vector<TripleIntNode> *resul
 
     TrieTreeNode *now_node = root;
 
-    int last_i = 0;
-    TrieTreeNode *last_match = nullptr;
+    vector<int> tmp_begin_pos = vector<int>();
+    vector<TrieTreeNode *> tmp_match = vector<TrieTreeNode *>();
+    TrieTreeNode *last_match;
     bool is_put;
+    int begin_pos;
 
     for (int i = 0; i < length; i++)
     {
@@ -198,6 +203,9 @@ void find_all_ac(TrieTreeNode *root, string *words, vector<TripleIntNode> *resul
             {
                 // 未找到匹配的子节点，移动到fail指针指向节点
                 now_node = now_node->fail;
+                // 当回溯失败指针发生时，说明当前字符匹配失败了
+                // 那么之前如果存在匹配结果的话可以将其加入最终结果了
+                // 故设立标志位
                 is_put = true;
             }
             else
@@ -207,11 +215,18 @@ void find_all_ac(TrieTreeNode *root, string *words, vector<TripleIntNode> *resul
                 break;
             }
         }
-        if (last_match != nullptr && is_put)
+        if (is_put)
         {
-            result->emplace_back(TripleIntNode(last_i - last_match->level, last_i, last_match->pos));
-            last_i = 0;
-            last_match = nullptr;
+            size_t len = tmp_begin_pos.size();
+            if (len)
+            {
+                for (size_t j=0; j < len; ++j)
+                {
+                    result->emplace_back(TripleIntNode(tmp_begin_pos[j], tmp_begin_pos[j] + tmp_match[j]->level, tmp_match[j]->pos));
+                }
+                tmp_begin_pos.clear();
+                tmp_match.clear();
+            }
         }
 
         if (now_node == root)
@@ -231,18 +246,46 @@ void find_all_ac(TrieTreeNode *root, string *words, vector<TripleIntNode> *resul
                 continue;
             }
         }
-
-        if (now_node->pos >= 0)
+        // 回溯失败节点，找到第一个词结尾节点
+        last_match = now_node;
+        while (last_match->pos < 0 && last_match != root)
         {
-            // 只取最长的
-            last_i = i;
-            last_match = now_node;
+            last_match = last_match->fail;
+        }
+        if (last_match != root)
+        {
+            begin_pos = i - last_match->level;
+            if (!tmp_begin_pos.empty())
+            {
+                // 因为实际上 tmp_begin_pos 是升序的
+                // 所以可以通过判断开头来减少操作次数
+                if (tmp_begin_pos.front() >= begin_pos)
+                {
+                    tmp_begin_pos.clear();
+                    tmp_match.clear();
+                }
+                else
+                {
+                    // 将被覆盖结果清除
+                    while (!tmp_begin_pos.empty() && tmp_begin_pos.back() >= begin_pos)
+                    {
+                        tmp_begin_pos.pop_back();
+                        tmp_match.pop_back();
+                    }
+                }
+            }
+            tmp_begin_pos.push_back(begin_pos);
+            tmp_match.push_back(last_match);
         }
     }
-    // 检测最后一个字符是否为模式串结尾
-    if (last_match != nullptr)
+    // 检查是否还有剩余可能结果未添加进最终结果里
+    if (!tmp_begin_pos.empty())
     {
-        result->emplace_back(TripleIntNode(last_i - last_match->level, last_i, last_match->pos));
+        size_t len = tmp_begin_pos.size();
+        for (size_t i=0; i < len; ++i)
+        {
+            result->emplace_back(TripleIntNode(tmp_begin_pos[i], tmp_begin_pos[i] + tmp_match[i]->level, tmp_match[i]->pos));
+        }
     }
 }
 
